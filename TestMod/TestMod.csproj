@@ -5,7 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <!-- Force generation of runtimeconfig.json for a library -->
-    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+	<!-- not needed when loading into an existing clr -->
+    <!-- <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles> -->
   </PropertyGroup>
 
   <ItemGroup>

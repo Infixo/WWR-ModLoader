@@ -2,14 +2,12 @@
 #include <iostream>
 #include <windows.h>
 #include <string>
+#include "coreclr_delegates.h"
 #include "hostfxr.h"
 #include "logger.h"
 
 HINSTANCE theDll = nullptr;
 
-// The actual function pointer to the managed method.
-// This matches the signature of our C# InitializeMod method.
-typedef HRESULT(__stdcall* initialize_mod_fn)();
 
 
 // Simple wrapper to call a managed method
@@ -42,13 +40,13 @@ static DWORD WINAPI run_mod(LPVOID)
     //
     // Step 2a: Get function pointers to the hostfxr API.
     //
-    hostfxr_initialize_for_runtime_config_fn hostfxr_initialize_for_runtime_config =
-        (hostfxr_initialize_for_runtime_config_fn)GetProcAddress(hostfxrLib, "hostfxr_initialize_for_runtime_config");
-    if (!hostfxr_initialize_for_runtime_config) {
-        write_log(L"Failed to get hostfxr_initialize_for_runtime_config.");
-        return 1;
-    }
-    write_log(L"hostfxr_initialize_for_runtime_config acquired");
+    //hostfxr_initialize_for_runtime_config_fn hostfxr_initialize_for_runtime_config =
+        //(hostfxr_initialize_for_runtime_config_fn)GetProcAddress(hostfxrLib, "hostfxr_initialize_for_runtime_config");
+    //if (!hostfxr_initialize_for_runtime_config) {
+        //write_log(L"Failed to get hostfxr_initialize_for_runtime_config.");
+        //return 1;
+    //}
+    //write_log(L"hostfxr_initialize_for_runtime_config acquired");
 
     //
     // Step 2b: Get a delegate to the hostfxr_get_runtime_delegate function.
@@ -61,13 +59,13 @@ static DWORD WINAPI run_mod(LPVOID)
     }
     write_log(L"hostfxr_get_runtime_delegate acquired");
 
-    // 2c
-    hostfxr_close_fn hostfxr_close = (hostfxr_close_fn)GetProcAddress(hostfxrLib, "hostfxr_close");
-    if (!hostfxr_close) {
-        write_log(L"Failed to get hostfxr_close.");
-        return 1;
-    }
-    write_log(L"hostfxr_close acquired");
+    // 2c CLOSE is not used - we are using existing framework
+    //hostfxr_close_fn hostfxr_close = (hostfxr_close_fn)GetProcAddress(hostfxrLib, "hostfxr_close");
+    //if (!hostfxr_close) {
+        //write_log(L"Failed to get hostfxr_close.");
+        //return 1;
+    //}
+    //write_log(L"hostfxr_close acquired");
 
     //
     // Step 3: Initialize the host context from the runtime.
@@ -94,9 +92,20 @@ static DWORD WINAPI run_mod(LPVOID)
     */
 
     //
-    // Step 3: Get a delegate to the managed method.
+    // Step 3: Get a delegate to the load_assembly_and_get_function method.
     //
-    void* managedDelegate = nullptr;
+    // This is actually taken from coreclr_delegates.h so it can be omitted
+    /*
+    typedef int (WINAPI* load_assembly_and_get_function_pointer_fn)(
+        const wchar_t* assembly_path,
+        const wchar_t* type_name,
+        const wchar_t* method_name,
+        const wchar_t* delegate_type_name,
+        //void* unknown, // there is 6 params in the example here https://learn.microsoft.com/en-us/dotnet/core/tutorials/netcore-hosting 
+        void** delegate);
+    */
+
+    load_assembly_and_get_function_pointer_fn load_assembly_and_get_function_pointer = nullptr;
     // The delegate_type parameter is a specific enum from the hostfxr.h header.
     // The value 1 is for "hdt_com_unmanaged_callers_only_method" which is not the same as a normal delegate
     // The correct delegate_type is not publicly exposed and depends on the specific host.
@@ -105,61 +114,58 @@ static DWORD WINAPI run_mod(LPVOID)
         //hostContext,
         nullptr, // Use nullptr to indicate that we want to use the existing host context.
         hdt_load_assembly_and_get_function_pointer,
-        &managedDelegate);
-    if (rc != 0 || managedDelegate == nullptr) {
-        write_log(L"Failed to get managed method delegate from existing host.", (HRESULT)rc);
+        (void**) & load_assembly_and_get_function_pointer);
+    if (rc != 0 || load_assembly_and_get_function_pointer == nullptr) {
+        write_log(L"Failed to get pointer to load_assembly_and_get_function from the existing host.", rc);
         //hostfxr_close(hostContext);
         return 1;
     }
-    write_log(L"managed method delegate from existing host acquired");
+    write_log(L"load_assembly_and_get_function from existing host acquired");
 
     //
     // Step 4: Get a pointer to our C# method using the delegate.
     //
     //const wchar_t* assemblyPath = L"C:\\Repos\\WWR-Mods\\TestMod\\x64\\Release\\TestMod.dll"; // TODO!
     const wchar_t* assemblyPath = L"TestMod.dll"; // TODO!
-    const wchar_t* typeName = L"TestMod.ModEntry, TestMod"; // Use assembly qualified name
+    const wchar_t* typeName = L"TestMod.ModEntry, TestMod"; // Use fully qualified name <namespace>.<class>, <dll>
     const wchar_t* methodName = L"InitializeMod";
-    
-    typedef int (WINAPI* get_function_pointer_fn)(
-        const wchar_t* assembly_path,
-        const wchar_t* type_name,
-        const wchar_t* method_name,
-        const wchar_t* delegate_type_name,
-        void** delegate);
-
-    auto get_function_pointer = (get_function_pointer_fn)managedDelegate;
 
     wchar_t modulePath[MAX_PATH];
     // We use the HMODULE that was passed to DllMain to get our DLL's path.
     GetModuleFileNameW(theDll, modulePath, MAX_PATH);
-
     //std::wstring moduleDir = modulePath;
     //size_t lastSlashPos = moduleDir.find_last_of(L"\\/");
     //if (lastSlashPos != std::wstring::npos) {
         //moduleDir = moduleDir.substr(0, lastSlashPos + 1);
     //}
     //std::wstring assemblyPath = moduleDir + L"TestMod.dll";
-
     // Log the path to verify it
     write_log(modulePath);
 
+    // The actual function pointer to the managed method.
+    // This matches the signature of our C# InitializeMod method.
+    typedef HRESULT(__stdcall* initialize_mod_fn)();
+
     initialize_mod_fn managedMethod = NULL;
-    rc = get_function_pointer(
+    rc = load_assembly_and_get_function_pointer(
         assemblyPath,
         typeName,
         methodName,
-        nullptr,
+        UNMANAGEDCALLERSONLY_METHOD,
+        0, /* Extensibility parameter (currently unused and must be 0) */
         (void**)&managedMethod
     );
 
     if (rc != 0 || managedMethod == nullptr) {
-        write_log(L"Failed to get function pointer from managed delegate.", (HRESULT)rc);
+        write_log(L"Failed to get managed method pointer.", rc);
         //hostfxr_close(hostContext);
         return 1;
         // 80131502 - ERROR_MOD_NOT_FOUND
+        // 80070057 - E_INVALIDARG
+        // 80131509 - COR_E_FILELOAD; The CLR found your assembly, but failed to load it.  or COR_E_INVALIDOPERATION
+        // 80070002 - ERROR_FILE_NOT_FOUND
     }
-    write_log(L"delagate for InitializeMod acquired");
+    write_log(L"pointer to InitializeMod acquired");
 
     //
     // Step 5: Call the C# method.

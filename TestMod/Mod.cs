@@ -1,10 +1,11 @@
-﻿using System;
-using System.Linq;
-using System.Reflection;
-using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
+﻿//using System;
+//using System.Linq;
+//using System.Reflection;
+//using System.Reflection.Emit;
+//using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using HarmonyLib;
+//using HarmonyLib;
+
 
 namespace TestMod;
 
@@ -18,32 +19,33 @@ public static class ModEntry
     // logging
     //public static ILog log = LogManager.GetLogger($"{nameof(InfoLoom)}").SetShowsErrorsInUI(false);
 
-    [UnmanagedCallersOnly(EntryPoint = "InitializeMod")] // not needed when called via CLR
-    //[ModuleInitializer] // only works with CLR, not native loads
-    public static void InitializeMod()
+    [UnmanagedCallersOnly]
+    //[UnmanagedCallersOnly(EntryPoint = "InitializeMod")] // not needed when called via CLR
+    //[ModuleInitializer] // only works with CLR, not native loads?
+    public static int InitializeMod()
     {
         //log.Info(nameof(OnLoad));
         // Harmony
-        Log.Write($"Initialize called. HarmonyId is {harmonyId}.");
-        var harmony = new Harmony(harmonyId);
+        //Log.Write($"Initialize called. HarmonyId is {harmonyId}.");
+        //var harmony = new Harmony(harmonyId);
         //harmony.PatchAll(typeof(Mod).Assembly);
-        harmony.PatchAll();
-        var patchedMethods = harmony.GetPatchedMethods().ToArray();
+        //harmony.PatchAll();
+        //var patchedMethods = harmony.GetPatchedMethods().ToArray();
         //log.Info($"Plugin {harmonyId} made patches! Patched methods: " + patchedMethods.Length);
-        foreach (var patchedMethod in patchedMethods)
-        {
-            Log.Write($"Patched method: {patchedMethod.Module.Name}:{patchedMethod.DeclaringType.Name}.{patchedMethod.Name}");
-        }
+        //foreach (var patchedMethod in patchedMethods)
+        //{
+            //Log.Write($"Patched method: {patchedMethod.Module.Name}:{patchedMethod.DeclaringType.Name}.{patchedMethod.Name}");
+        //}
         // do stuff here to initialize
-        //return 0;
+        return 0;
     }
 
     public static void OnDispose()
     {
-        Log.Write(nameof(OnDispose));
+        //Log.Write(nameof(OnDispose));
         // Harmony
-        var harmony = new Harmony(harmonyId);
-        harmony.UnpatchAll(harmonyId);
+        //var harmony = new Harmony(harmonyId);
+        //harmony.UnpatchAll(harmonyId);
     }
 }
 
@@ -58,7 +60,7 @@ public static class LabelPatch
     }
 }
 */
-
+/*
 public static class Log
 {
     /// <summary>
@@ -96,3 +98,4 @@ public static class Log
     }
 
 }
+*/

@@ -33,7 +33,7 @@ void write_log(const wchar_t* msg)
     out.close();
 }
 
-void write_log(const wchar_t* msg, HRESULT result)
+void write_log(const wchar_t* msg, int result)
 {
     wchar_t buf[MAX_PATH];
     swprintf_s(buf, L"%s, result=%X", msg, result);
