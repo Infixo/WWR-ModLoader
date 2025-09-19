@@ -78,6 +78,7 @@ static DWORD WINAPI run_mod(LPVOID)
     // Step 2: Get the runtime info for the loaded CLR version.
     // fails with code 80131700 - COR_E_BADIMAGEFORMAT
     // It need full version number, wildcards are not allowed, may change at any time
+    // current is 8.0.1124.51707
     //
     //hr = pMetaHost->GetRuntime(L"v8.0.11", IID_PPV_ARGS(&pRuntimeInfo)); // .NET 8
     //if (FAILED(hr)) { write_log(L"GetRuntime failed", hr); return false; }
@@ -92,6 +93,19 @@ static DWORD WINAPI run_mod(LPVOID)
         return 1;
     }
 
+    //
+    // Step 2b: Get the first loaded runtime info.
+    // We'll just take the first one we find.
+    //
+    IUnknown* pUnk = NULL;
+    ULONG fetched = 0;
+    hr = pLoadedRuntimes->Next(1, &pUnk, &fetched);
+    if (FAILED(hr) || fetched == 0) {
+        write_log(L"Failed to find any loaded runtime.", hr);
+        pLoadedRuntimes->Release();
+        pMetaHost->Release();
+        return 1;
+    }
     write_log(L"ok ICLRRuntimeInfo interface");
 
     BOOL bLoadable = FALSE;

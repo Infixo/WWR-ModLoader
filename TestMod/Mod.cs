@@ -18,7 +18,7 @@ public static class ModEntry
     // logging
     //public static ILog log = LogManager.GetLogger($"{nameof(InfoLoom)}").SetShowsErrorsInUI(false);
 
-    //[UnmanagedCallersOnly(EntryPoint = "InitializeMod")] // not needed when called via CLR
+    [UnmanagedCallersOnly(EntryPoint = "InitializeMod")] // not needed when called via CLR
     //[ModuleInitializer] // only works with CLR, not native loads
     public static void InitializeMod()
     {

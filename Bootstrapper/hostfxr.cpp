@@ -1,0 +1,194 @@
+#include "pch.h"
+#include <iostream>
+#include <windows.h>
+#include <string>
+#include "hostfxr.h"
+#include "logger.h"
+
+HINSTANCE theDll = nullptr;
+
+// The actual function pointer to the managed method.
+// This matches the signature of our C# InitializeMod method.
+typedef HRESULT(__stdcall* initialize_mod_fn)();
+
+
+// Simple wrapper to call a managed method
+static DWORD WINAPI run_mod(LPVOID)
+{
+    write_log(L"run_mod");
+
+    // debug - check working dir
+    wchar_t buf[MAX_PATH];
+    wchar_t dir[MAX_PATH];
+    DWORD result = GetCurrentDirectoryW(MAX_PATH, dir);
+    swprintf_s(buf, L"working dir is %s", dir);
+    write_log(buf);
+
+    //
+    // Step 1: Find and load the hostfxr library.
+    //
+    HMODULE hostfxrLib = NULL;
+    // The official way to find the hostfxr path is using the nethost library, but that requires
+    // another dependency. For simplicity in this snippet, we will assume it's in a known location
+    // or loaded by the process itself (which is often true for .NET applications).
+    // In a production environment, you would use a more robust search logic or the nethost library.
+    hostfxrLib = GetModuleHandleW(L"hostfxr.dll");
+    if (!hostfxrLib) {
+        write_log(L"Failed to find hostfxr.dll. Make sure the host process is a .NET Core app.");
+        return 1;
+    }
+    write_log(L"hostfxr acquired");
+
+    //
+    // Step 2a: Get function pointers to the hostfxr API.
+    //
+    hostfxr_initialize_for_runtime_config_fn hostfxr_initialize_for_runtime_config =
+        (hostfxr_initialize_for_runtime_config_fn)GetProcAddress(hostfxrLib, "hostfxr_initialize_for_runtime_config");
+    if (!hostfxr_initialize_for_runtime_config) {
+        write_log(L"Failed to get hostfxr_initialize_for_runtime_config.");
+        return 1;
+    }
+    write_log(L"hostfxr_initialize_for_runtime_config acquired");
+
+    //
+    // Step 2b: Get a delegate to the hostfxr_get_runtime_delegate function.
+    //
+    hostfxr_get_runtime_delegate_fn hostfxr_get_delegate = (hostfxr_get_runtime_delegate_fn)GetProcAddress(
+        hostfxrLib, "hostfxr_get_runtime_delegate");
+    if (!hostfxr_get_delegate) {
+        write_log(L"Failed to get hostfxr_get_runtime_delegate.");
+        return 1;
+    }
+    write_log(L"hostfxr_get_runtime_delegate acquired");
+
+    // 2c
+    hostfxr_close_fn hostfxr_close = (hostfxr_close_fn)GetProcAddress(hostfxrLib, "hostfxr_close");
+    if (!hostfxr_close) {
+        write_log(L"Failed to get hostfxr_close.");
+        return 1;
+    }
+    write_log(L"hostfxr_close acquired");
+
+    //
+    // Step 3: Initialize the host context from the runtime.
+    // This is the CRUCIAL step to get access to the already loaded CLR.
+    // rc=2 - not found
+    // 800080A5 - StatusCode::InvalidRuntimeConfig (Invalid Runtime Configuration) - cannot parse??? probably due to extra info
+    // 80008093 - StatusCode::RuntimeConfigHasInvalidVersions   (Incompatible Runtime Version)
+    //const wchar_t* runtimeConfigPath = L"C:\\Repos\\WWR-Mods\\TestMod\\x64\\Release\\TestMod.runtimeconfig.json";
+
+    /* SKIP
+    hostfxr_handle hostContext = NULL;
+    int rc = hostfxr_initialize_for_runtime_config(
+        //runtimeConfigPath, // Path to the runtime config file for your assembly
+        //C:\Steam\steamapps\common\Worldwide Rush\Worldwide Rush.runtimeconfig.json
+        //L"Worldwide Rush.runtimeconfig.json",
+        L"TestMod.runtimeconfig.json",
+        nullptr,
+        &hostContext);
+    if (rc != 0 || hostContext == NULL) {
+        write_log(L"Failed to initialize host context.", (HRESULT)rc);
+        return 1;
+    }
+    write_log(L"host context initialized");
+    */
+
+    //
+    // Step 3: Get a delegate to the managed method.
+    //
+    void* managedDelegate = nullptr;
+    // The delegate_type parameter is a specific enum from the hostfxr.h header.
+    // The value 1 is for "hdt_com_unmanaged_callers_only_method" which is not the same as a normal delegate
+    // The correct delegate_type is not publicly exposed and depends on the specific host.
+    // However, the most robust way is to use a specific hosting delegate type, as shown below.
+    int rc = hostfxr_get_delegate(
+        //hostContext,
+        nullptr, // Use nullptr to indicate that we want to use the existing host context.
+        hdt_load_assembly_and_get_function_pointer,
+        &managedDelegate);
+    if (rc != 0 || managedDelegate == nullptr) {
+        write_log(L"Failed to get managed method delegate from existing host.", (HRESULT)rc);
+        //hostfxr_close(hostContext);
+        return 1;
+    }
+    write_log(L"managed method delegate from existing host acquired");
+
+    //
+    // Step 4: Get a pointer to our C# method using the delegate.
+    //
+    //const wchar_t* assemblyPath = L"C:\\Repos\\WWR-Mods\\TestMod\\x64\\Release\\TestMod.dll"; // TODO!
+    const wchar_t* assemblyPath = L"TestMod.dll"; // TODO!
+    const wchar_t* typeName = L"TestMod.ModEntry, TestMod"; // Use assembly qualified name
+    const wchar_t* methodName = L"InitializeMod";
+    
+    typedef int (WINAPI* get_function_pointer_fn)(
+        const wchar_t* assembly_path,
+        const wchar_t* type_name,
+        const wchar_t* method_name,
+        const wchar_t* delegate_type_name,
+        void** delegate);
+
+    auto get_function_pointer = (get_function_pointer_fn)managedDelegate;
+
+    wchar_t modulePath[MAX_PATH];
+    // We use the HMODULE that was passed to DllMain to get our DLL's path.
+    GetModuleFileNameW(theDll, modulePath, MAX_PATH);
+
+    //std::wstring moduleDir = modulePath;
+    //size_t lastSlashPos = moduleDir.find_last_of(L"\\/");
+    //if (lastSlashPos != std::wstring::npos) {
+        //moduleDir = moduleDir.substr(0, lastSlashPos + 1);
+    //}
+    //std::wstring assemblyPath = moduleDir + L"TestMod.dll";
+
+    // Log the path to verify it
+    write_log(modulePath);
+
+    initialize_mod_fn managedMethod = NULL;
+    rc = get_function_pointer(
+        assemblyPath,
+        typeName,
+        methodName,
+        nullptr,
+        (void**)&managedMethod
+    );
+
+    if (rc != 0 || managedMethod == nullptr) {
+        write_log(L"Failed to get function pointer from managed delegate.", (HRESULT)rc);
+        //hostfxr_close(hostContext);
+        return 1;
+        // 80131502 - ERROR_MOD_NOT_FOUND
+    }
+    write_log(L"delagate for InitializeMod acquired");
+
+    //
+    // Step 5: Call the C# method.
+    //
+    int managedMethodReturnValue = managedMethod();
+    if (managedMethodReturnValue != S_OK) { // Assuming the C# method returns an HRESULT
+        write_log(L"Managed method call failed.");
+        //hostfxr_close(hostContext);
+        return 1;
+    }
+
+    write_log(L"Successfully loaded and invoked C# method.");
+
+    // The hostfxr.dll is managed by the host process, so we don't need to free the library.
+    // FreeLibrary(hostfxrLib);
+    //hostfxr_close(hostContext);
+
+    return 0;
+}
+
+BOOL WINAPI DllMain(HINSTANCE hModule, DWORD fdwReason, LPVOID)
+{
+    if (fdwReason == DLL_PROCESS_ATTACH)
+    {
+        write_log(L"DllMain");
+        theDll = hModule;
+        DisableThreadLibraryCalls(hModule);
+        HANDLE h = CreateThread(nullptr, 0, run_mod, nullptr, 0, nullptr);
+        if (h) CloseHandle(h);
+    }
+    return TRUE;
+}
