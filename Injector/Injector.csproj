@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- this should make a single exe instead of exe+dll combo 
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>false</SelfContained>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+    -->
+  </PropertyGroup>
+
+  <!--
+  <ItemGroup>
+    <ProjectReference Include="..\TestMod\TestMod.csproj" />
+  </ItemGroup>
+  -->
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy /Y &quot;$(TargetDir)$(ProjectName).exe&quot; &quot;$(SolutionDir)\x64\$(Configuration)\$(ProjectName).exe&quot;&#xD;&#xA;copy /Y &quot;$(TargetDir)$(ProjectName).dll&quot; &quot;$(SolutionDir)\x64\$(Configuration)\$(ProjectName).dll&quot;&#xD;&#xA;copy /Y &quot;$(TargetDir)$(ProjectName).runtimeconfig.json&quot; &quot;$(SolutionDir)\x64\$(Configuration)\$(ProjectName).runtimeconfig.json&quot;&#xD;&#xA;" />
+  </Target>
+
+  <ItemGroup>
+    <Compile Remove="Program.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Program.cs" />
+  </ItemGroup>
+
+</Project>
