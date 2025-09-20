@@ -23,7 +23,7 @@ void write_log(const wchar_t* msg)
     // open log file
     wchar_t path[MAX_PATH];
     GetTempPathW(MAX_PATH, path);
-    std::wstring f = std::wstring(path) + L"bootstrapper.txt";
+    std::wstring f = std::wstring(path) + L"wwrmodloader.txt";
     //std::wstring f = L"C:\\Temp\\bootstrapper.txt";
     std::wofstream out(f, std::ios::app);
 
@@ -36,6 +36,6 @@ void write_log(const wchar_t* msg)
 void write_log(const wchar_t* msg, int result)
 {
     wchar_t buf[MAX_PATH];
-    swprintf_s(buf, L"%s, result=%X", msg, result);
+    swprintf_s(buf, L"%s, result=0x%X", msg, result);
     write_log(buf);
 }

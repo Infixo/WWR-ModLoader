@@ -1,11 +1,7 @@
 ﻿// Injector.cs
 // Simple DLL injector using CreateRemoteThread + LoadLibraryW.
 // Usage:
-//   Injector.exe <processName|pid> <fullPathToBootstrapperDll>
-//
-// Examples:
-//   Injector.exe MyGame "C:\mods\bootstrapper.dll"
-//   Injector.exe 12345 "C:\mods\bootstrapper.dll"
+// Injector.exe [<processName>]
 
 using System;
 using System.Diagnostics;
@@ -194,7 +190,7 @@ class Injector
         string tempPath = Path.GetTempPath();
 
         // Combine the temporary path with the log file name.
-        string filePath = Path.Combine(tempPath, "bootstrapper.txt");
+        string filePath = Path.Combine(tempPath, "wwrmodloader.txt");
 
         try
         {

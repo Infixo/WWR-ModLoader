@@ -126,7 +126,7 @@ static DWORD WINAPI run_mod(LPVOID)
     // Step 4: Get a pointer to our C# method using the delegate.
     //
     //const wchar_t* assemblyPath = L"C:\\Repos\\WWR-Mods\\TestMod\\x64\\Release\\TestMod.dll"; // TODO!
-    const wchar_t* assemblyPath = L"TestMod.dll"; // TODO!
+    const wchar_t* assemblyPath = L"Mods\\TestMod.dll"; // TODO!
     const wchar_t* typeName = L"TestMod.ModEntry, TestMod"; // Use fully qualified name <namespace>.<class>, <dll>
     const wchar_t* methodName = L"InitializeMod";
 
