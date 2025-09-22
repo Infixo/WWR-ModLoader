@@ -145,60 +145,71 @@ static DWORD WINAPI run_mod(LPVOID)
         write_log(L"error: could not open the config file");
         return 1;
     }
-    // Read the file line by line until the end is reached.
-    while (inputFile.getline(modName, 32)) {
-        swprintf_s(buf, L"loading mod: %s", modName);
-        write_log(buf);
 
-        // PROCESS MOD
-    }
-    inputFile.close(); // Close the file stream.
-
-    //
-    // Step 4: Get a pointer to our C# method using the delegate.
-    //
+    // name buffers
     //const wchar_t* assemblyPath = L"C:\\Repos\\WWR-Mods\\TestMod\\x64\\Release\\TestMod.dll"; // TODO!
-    const wchar_t* assemblyPath = L"Mods\\TestMod.dll"; // TODO!
-    const wchar_t* typeName = L"TestMod.ModEntry, TestMod"; // Use fully qualified name <namespace>.<class>, <dll>
+    //const wchar_t* assemblyPath = L"Mods\\TestMod.dll"; // TODO!
+    //const wchar_t* typeName = L"TestMod.ModEntry, TestMod"; // Use fully qualified name <namespace>.<class>, <dll>
+    wchar_t assemblyPath[MAX_PATH] = L"Mods\\TestMod.dll"; // TODO!
+    wchar_t typeName[MAX_PATH] = L"TestMod.ModEntry, TestMod"; // Use fully qualified name <namespace>.<class>, <dll>
     const wchar_t* methodName = L"InitializeMod";
 
+    // Read the file line by line until the end is reached.
+    while (inputFile.getline(modName, 32))
+    {
+        //swprintf_s(buf, L"loading mod: %s", modName);
+        //write_log(buf);
 
-    // The actual function pointer to the managed method.
-    // This matches the signature of our C# InitializeMod method.
-    typedef HRESULT(__stdcall* initialize_mod_fn)();
+        // PROCESS MOD
+        swprintf_s(assemblyPath, L"Mods\\%s.dll", modName);
+        swprintf_s(typeName, L"%s.ModEntry, %s", modName, modName);
+        swprintf_s(buf, L"loading mod: %s assembly: %s entry: %s", modName, assemblyPath, typeName);
+        write_log(buf);
 
-    initialize_mod_fn managedMethod = NULL;
-    rc = load_assembly_and_get_function_pointer(
-        assemblyPath,
-        typeName,
-        methodName,
-        UNMANAGEDCALLERSONLY_METHOD,
-        0, /* Extensibility parameter (currently unused and must be 0) */
-        (void**)&managedMethod
-    );
+        //
+        // Step 4: Get a pointer to our C# method using the delegate.
+        //
 
-    if (rc != 0 || managedMethod == nullptr) {
-        write_log(L"Failed to get managed method pointer.", rc);
-        //hostfxr_close(hostContext);
-        return 1;
-        // 80131502 - ERROR_MOD_NOT_FOUND
-        // 80070057 - E_INVALIDARG
-        // 80131509 - COR_E_FILELOAD; The CLR found your assembly, but failed to load it.  or COR_E_INVALIDOPERATION
-        // 80070002 - ERROR_FILE_NOT_FOUND
-    }
-    write_log(L"pointer to InitializeMod acquired");
+        // The actual function pointer to the managed method.
+        // This matches the signature of our C# InitializeMod method.
+        typedef HRESULT(__stdcall* initialize_mod_fn)();
 
-    //
-    // Step 5: Call the C# method.
-    //
-    int managedMethodReturnValue = managedMethod();
-    if (managedMethodReturnValue != S_OK) { // Assuming the C# method returns an HRESULT
-        write_log(L"Managed method call failed.");
-        //hostfxr_close(hostContext);
-        return 1;
-    }
+        initialize_mod_fn managedMethod = NULL;
+        rc = load_assembly_and_get_function_pointer(
+            assemblyPath,
+            typeName,
+            methodName,
+            UNMANAGEDCALLERSONLY_METHOD,
+            0, /* Extensibility parameter (currently unused and must be 0) */
+            (void**)&managedMethod
+        );
 
-    write_log(L"Successfully loaded and invoked C# method.");
+        if (rc != 0 || managedMethod == nullptr) {
+            write_log(L"error: failed to get managed method pointer", rc);
+            //hostfxr_close(hostContext);
+            continue; //  return 1;
+            // 80131502 - ERROR_MOD_NOT_FOUND
+            // 80070057 - E_INVALIDARG
+            // 80131509 - COR_E_FILELOAD; The CLR found your assembly, but failed to load it.  or COR_E_INVALIDOPERATION
+            // 80070002 - ERROR_FILE_NOT_FOUND
+        }
+        write_log(L"...pointer to InitializeMod acquired");
+
+        //
+        // Step 5: Call the C# method.
+        //
+        int managedMethodReturnValue = managedMethod();
+        if (managedMethodReturnValue != S_OK) { // Assuming the C# method returns an HRESULT
+            write_log(L"error: managed method call failed");
+            //hostfxr_close(hostContext);
+            continue;
+        }
+
+        write_log(L"...successfully loaded and invoked C# method.");
+
+    } // END OF CONFIG FILE READING
+
+    inputFile.close(); // Close the file stream.
 
     // The hostfxr.dll is managed by the host process, so we don't need to free the library.
     // FreeLibrary(hostfxrLib);
