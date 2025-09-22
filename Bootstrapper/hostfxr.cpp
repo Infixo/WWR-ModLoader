@@ -1,5 +1,6 @@
 #include "pch.h"
 #include <iostream>
+#include <fstream>
 #include <windows.h>
 #include <string>
 #include "coreclr_delegates.h"
@@ -123,6 +124,37 @@ static DWORD WINAPI run_mod(LPVOID)
     write_log(L"load_assembly_and_get_function from existing host acquired");
 
     //
+    // Prepare input file with mod names
+    //
+    wchar_t configPath[MAX_PATH];
+    GetModuleFileNameW(theDll, configPath, MAX_PATH); // // We use the HMODULE that was passed to DllMain to get our DLL's path.
+    size_t length = wcslen(configPath);
+    configPath[length - 3] = L't';
+    configPath[length - 2] = L'x';
+    configPath[length - 1] = L't';
+    swprintf_s(buf, L"config file: %s", configPath);
+    write_log(buf); // Log the path to verify it
+
+    // 
+    // Read mod names from the config file
+    // 
+    wchar_t modName[32]; 
+    std::wifstream inputFile(configPath); // Open the file for reading in wide character mode.
+    // Check if the file was opened successfully.
+    if (!inputFile.is_open()) {
+        write_log(L"error: could not open the config file");
+        return 1;
+    }
+    // Read the file line by line until the end is reached.
+    while (inputFile.getline(modName, 32)) {
+        swprintf_s(buf, L"loading mod: %s", modName);
+        write_log(buf);
+
+        // PROCESS MOD
+    }
+    inputFile.close(); // Close the file stream.
+
+    //
     // Step 4: Get a pointer to our C# method using the delegate.
     //
     //const wchar_t* assemblyPath = L"C:\\Repos\\WWR-Mods\\TestMod\\x64\\Release\\TestMod.dll"; // TODO!
@@ -130,17 +162,6 @@ static DWORD WINAPI run_mod(LPVOID)
     const wchar_t* typeName = L"TestMod.ModEntry, TestMod"; // Use fully qualified name <namespace>.<class>, <dll>
     const wchar_t* methodName = L"InitializeMod";
 
-    wchar_t modulePath[MAX_PATH];
-    // We use the HMODULE that was passed to DllMain to get our DLL's path.
-    GetModuleFileNameW(theDll, modulePath, MAX_PATH);
-    //std::wstring moduleDir = modulePath;
-    //size_t lastSlashPos = moduleDir.find_last_of(L"\\/");
-    //if (lastSlashPos != std::wstring::npos) {
-        //moduleDir = moduleDir.substr(0, lastSlashPos + 1);
-    //}
-    //std::wstring assemblyPath = moduleDir + L"TestMod.dll";
-    // Log the path to verify it
-    write_log(modulePath);
 
     // The actual function pointer to the managed method.
     // This matches the signature of our C# InitializeMod method.
