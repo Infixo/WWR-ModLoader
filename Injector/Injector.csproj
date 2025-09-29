@@ -23,12 +23,4 @@
     <Exec Command="copy /Y &quot;$(TargetDir)$(ProjectName).exe&quot; &quot;$(SolutionDir)\x64\$(Configuration)\$(ProjectName).exe&quot;&#xD;&#xA;copy /Y &quot;$(TargetDir)$(ProjectName).dll&quot; &quot;$(SolutionDir)\x64\$(Configuration)\$(ProjectName).dll&quot;&#xD;&#xA;copy /Y &quot;$(TargetDir)$(ProjectName).runtimeconfig.json&quot; &quot;$(SolutionDir)\x64\$(Configuration)\$(ProjectName).runtimeconfig.json&quot;&#xD;&#xA;" />
   </Target>
 
-  <ItemGroup>
-    <Compile Remove="Program.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="Program.cs" />
-  </ItemGroup>
-
 </Project>
