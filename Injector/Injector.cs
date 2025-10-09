@@ -61,6 +61,9 @@ class Injector
     [DllImport("kernel32", SetLastError = true)]
     private static extern UInt32 WaitForSingleObject(IntPtr hHandle, UInt32 dwMilliseconds);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetExitCodeThread(IntPtr hThread, out uint lpExitCode);
+
     static int Main(string[] args)
     {
         string currentDirectory = Directory.GetCurrentDirectory();
@@ -159,9 +162,37 @@ class Injector
 
                 // Wait for the remote thread to complete (timeout 10s)
                 const uint WAIT_TIMEOUT = 10000;
-                WaitForSingleObject(hThread, WAIT_TIMEOUT);
+                uint wait = WaitForSingleObject(hThread, WAIT_TIMEOUT);
+                if (wait == 0xFFFFFFFF) // WAIT_FAILED
+                {
+                    WriteLog("WaitForSingleObject failed, error: " + Marshal.GetLastWin32Error());
+                    CloseHandle(hThread);
+                    return 1;
+                }
+                if (wait == 0x00000102) // WAIT_TIMEOUT
+                {
+                    WriteLog("WaitForSingleObject timed out. Trying to read exit code."); // You may still attempt to read exit code, but it's likely not finished yet.
+                }
 
-                WriteLog("SUCCESS - bootstrapper should be loaded.");
+                // Now read the remote thread exit code (LoadLibraryW return value => HMODULE)
+                if (!GetExitCodeThread(hThread, out uint exitCode))
+                {
+                    WriteLog("GetExitCodeThread failed, error: " + Marshal.GetLastWin32Error());
+                    CloseHandle(hThread);
+                    return 1;
+                }
+
+                // Interpret the result
+                if (exitCode == 0)
+                {
+                    WriteLog("Remote LoadLibraryW returned NULL -> DLL failed to load in target (exitCode=0).");
+                    // Useful hint: check file path accessibility, dependencies, and AV/WDAC on the target.
+                }
+                else
+                {
+                    WriteLog("Remote LoadLibraryW succeeded. Remote module handle (HMODULE): 0x" + exitCode.ToString("X"));
+                    WriteLog("SUCCESS - bootstrapper should be loaded.");
+                }
             }
             finally
             {
