@@ -1,5 +1,5 @@
 # Worldwide Rush ModLoader
-A custom-built mod loader for the ![Worldwide Rush game](https://store.steampowered.com/app/3325500/Worldwide_Rush/).
+A custom-built mod loader for the [Worldwide Rush game](https://store.steampowered.com/app/3325500/Worldwide_Rush/).
 
 ## Features
 
